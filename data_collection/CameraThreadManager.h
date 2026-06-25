@@ -1,3 +1,5 @@
+#pragma once
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -20,7 +22,7 @@ public:
     void start();
     void stop();
 
-    struct ThreadInfo {     // 存储线程id和设备id，一一对应
+    struct ThreadInfo {
         std::thread::id threadID;
         std::string deviceID;
         std::string threadName;
@@ -30,26 +32,66 @@ public:
     const std::vector<ThreadInfo>& getThreadInfoList() const;
 
 private:
-    void captureFrames(const std::string& devicePath, std::queue<std::pair<cv::Mat, int>>& frameQueue);      // 帧捕获
-    void saveFramesWorker(std::queue<std::pair<cv::Mat, int>>& frameQueue, const std::string& cameraName);  // 帧保存
-    std::string getCurrentDateTimeString(void );
-    void saveFrames(std::queue<std::pair<cv::Mat, int>>& frameQueue, const std::string& currentDateTime, const std::string& cameraName);
-    void stopThread(std::thread& t);   // 停止线程函数
-    void removeDeviceAndThreads(const std::string& devicePath); // 停止并销毁一个摄像头的线程
+    // 帧缓冲区池：预分配原始内存，避免每帧 malloc/free
+    struct FrameBufferPool {
+        std::vector<std::vector<uint8_t>> rawBuffers;  // 预分配的原始缓冲区
+        std::vector<cv::Mat> frames;                    // 指向缓冲区的 cv::Mat 头
+        std::queue<int> freeIndices;                    // 空闲索引队列
+        std::mutex mu;
+        bool initialized = false;
 
-    std::vector<std::string> devicePaths;   // 所有摄像头设备路径
-    std::vector<std::queue<std::pair<cv::Mat, int>>> frameQueues;   // 存储每个摄像头捕获到的帧队列
-    // 每个 std::queue 对应一个摄像头设备
-    // 队列中的元素是一个 std::pair<cv::Mat, int>
-    // 包含捕获到的帧 (cv::Mat) 和该帧的编号 (int)
-    std::vector<std::thread> captureThreads;    // 捕获视频帧的线程对象
-    std::vector<std::thread> saveThreads;   // 处理和保存视频帧的线程对象
+        void init(int count, int rows, int cols, int type) {
+            std::lock_guard<std::mutex> lk(mu);
+            size_t elemSize = CV_ELEM_SIZE(type);
+            size_t step = cols * elemSize;
+            for (int i = 0; i < count; i++) {
+                rawBuffers.emplace_back(rows * step);
+                frames.emplace_back(rows, cols, type, rawBuffers.back().data(), step);
+                freeIndices.push(i);
+            }
+            initialized = true;
+        }
 
-    std::mutex queueMutex;// 互斥锁
-    std::condition_variable dataCondition;  // 条件变量
-    bool keepRunning = true;    // 控制线程的运行状态
-    std::vector<bool> saveThreadsRunning; // 用于标志保存线程的运行状态
+        // 获取一个空闲缓冲区索引，-1 表示池满
+        int acquire() {
+            std::lock_guard<std::mutex> lk(mu);
+            if (freeIndices.empty()) return -1;
+            int idx = freeIndices.front();
+            freeIndices.pop();
+            return idx;
+        }
 
-    std::vector<ThreadInfo> threadInfoList; // 用于保存线程 ID 和设备 ID 的列表
+        // 归还缓冲区
+        void release(int idx) {
+            std::lock_guard<std::mutex> lk(mu);
+            freeIndices.push(idx);
+        }
 
+        int freeCount() {
+            std::lock_guard<std::mutex> lk(mu);
+            return freeIndices.size();
+        }
+    };
+
+    // 帧队列元素：(缓冲区索引, 帧序号)
+    using FrameEntry = std::pair<int, int>;
+
+    void captureFrames(const std::string& devicePath, std::queue<FrameEntry>& frameQueue, FrameBufferPool& pool);
+    void saveFramesWorker(std::queue<FrameEntry>& frameQueue, const std::string& cameraName, FrameBufferPool& pool);
+    std::string getCurrentDateTimeString();
+    void saveFrames(std::queue<FrameEntry>& frameQueue, const std::string& currentDateTime, const std::string& cameraName, FrameBufferPool& pool);
+    void stopThread(std::thread& t);
+
+    std::vector<std::string> devicePaths;
+    std::vector<std::queue<FrameEntry>> frameQueues;
+    std::vector<std::unique_ptr<FrameBufferPool>> framePools;  // 每个摄像头一个帧池
+    std::vector<std::thread> captureThreads;
+    std::vector<std::thread> saveThreads;
+
+    std::mutex queueMutex;
+    std::condition_variable dataCondition;
+    bool keepRunning = true;
+    std::vector<bool> saveThreadsRunning;
+
+    std::vector<ThreadInfo> threadInfoList;
 };

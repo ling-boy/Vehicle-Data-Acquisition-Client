@@ -78,7 +78,7 @@ bool DataCollector::DataCollectorLoopStart(void)
         std::thread bridgeThread([]() {
             LOG_INFO("Bridge thread started: local queue -> shared memory");
             while (cKeepRunning) {
-                SensorData data;
+                SensorData* data = nullptr;
                 {
                     std::unique_lock<std::mutex> lock(captureToProcessingQueueMutex);
                     captureToProcessingQueueCondition.wait_for(lock, std::chrono::milliseconds(100),
@@ -87,8 +87,14 @@ bool DataCollector::DataCollectorLoopStart(void)
                     data = captureToProcessingQueue.front();
                     captureToProcessingQueue.pop();
                 }
-                if (g_collectRing) {
-                    g_collectRing->write(&data, sizeof(SensorData));
+                if (data && g_collectRing) {
+                    g_collectRing->write(data, sizeof(SensorData));
+                }
+                // 归还到对象池
+                if (data && g_sensorDataPool) {
+                    g_sensorDataPool->release(data);
+                } else if (data) {
+                    delete data;
                 }
             }
             LOG_INFO("Bridge thread stopped");

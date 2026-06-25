@@ -15,19 +15,24 @@
 #include "SensorData.h"
 #include "Logger.h"
 #include "ShmRingBuffer.h"
+#include "MemoryPool.h"
 
 // 兼容旧代码：将 vehicle 命名空间的类型引入全局
 using vehicle::SensorData;
 using vehicle::ShmRingBuffer;
+using vehicle::MemoryPool;
 
 // ---- 兼容旧代码的全局变量 ----
 // 采集进程内部仍使用 std::queue 做线程间缓冲，
 // 由 ProcessingTask 从队列取出后写入 ShmRingBuffer
 
-// 采集→处理 队列（进程内线程间）
-extern std::queue<SensorData>        captureToProcessingQueue;
+// 采集→处理 队列（进程内线程间，存储池分配的指针）
+extern std::queue<SensorData*>       captureToProcessingQueue;
 extern std::mutex                    captureToProcessingQueueMutex;
 extern std::condition_variable       captureToProcessingQueueCondition;
+
+// SensorData 对象池（由采集进程 main 创建）
+extern MemoryPool<SensorData>*       g_sensorDataPool;
 
 // 处理→传输 队列（进程内线程间）
 extern std::queue<std::string>       processingToSendingQueue;

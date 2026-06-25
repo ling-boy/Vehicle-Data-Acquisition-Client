@@ -8,6 +8,7 @@
 #include "../shared/ShmRingBuffer.h"
 #include "../shared/MessageQueue.h"
 #include "../shared/SensorData.h"
+#include "../shared/MemoryPool.h"
 #include "../shared/Types.h"
 #include "DataCollector.h"
 
@@ -40,6 +41,11 @@ int main(int argc, char* argv[]) {
         LOG_FATAL("IPC open failed: " << e.what());
         return 1;
     }
+
+    // 创建 SensorData 对象池（256 个预分配槽位）
+    MemoryPool<SensorData> sensorDataPool(256);
+    g_sensorDataPool = &sensorDataPool;
+    LOG_INFO("SensorData pool created, capacity=256");
 
     // 创建并启动采集器
     auto collector = DataCollector::createNew();

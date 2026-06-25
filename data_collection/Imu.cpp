@@ -95,13 +95,14 @@ bool Imu::activate()
             std::this_thread::sleep_for(std::chrono::milliseconds(200 - elapsed.count()));
         }
 
-        vehicle::SensorData imu_data;
-        imu_data.sensorType = vehicle::SensorType::IMU;
-        imu_data.setTimestamp(currentDateTime);
-        imu_data.setFilePath(filename);
+        // 从对象池获取 SensorData
+        vehicle::SensorData* imu_data = g_sensorDataPool ? g_sensorDataPool->acquire() : new vehicle::SensorData();
+        imu_data->sensorType = vehicle::SensorType::IMU;
+        imu_data->setTimestamp(currentDateTime);
+        imu_data->setFilePath(filename);
         {
             std::lock_guard<std::mutex> lock(captureToProcessingQueueMutex);
-            captureToProcessingQueue.push(imu_data);            // ����Ŀ¼·��
+            captureToProcessingQueue.push(imu_data);  // 指针入队            // ����Ŀ¼·��
             captureToProcessingQueueCondition.notify_one(); // ֪ͨ����ģ����������
         }
     }

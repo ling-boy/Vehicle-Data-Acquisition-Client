@@ -85,10 +85,11 @@ void AudioCapture::start()
         // ���浱ǰ��Ƶ���ݵ��ļ�
         saveAudioData(filename);
         // std::cout << "Saved audio to: " << filename << std::endl;
-        vehicle::SensorData audio_data;
-        audio_data.sensorType = vehicle::SensorType::AUDIO;
-        audio_data.setTimestamp(currentDateTime);
-        audio_data.setFilePath(filename);
+        // 从对象池获取 SensorData
+        vehicle::SensorData* audio_data = g_sensorDataPool ? g_sensorDataPool->acquire() : new vehicle::SensorData();
+        audio_data->sensorType = vehicle::SensorType::AUDIO;
+        audio_data->setTimestamp(currentDateTime);
+        audio_data->setFilePath(filename);
 
         // // ��ӡ SensorData �ṹ�������
         // std::cout << "Sensor Type: " << audio_data.sensor_type << "\n"
@@ -96,7 +97,7 @@ void AudioCapture::start()
         //           << "File Path: " << audio_data.file_path << "\n";
         {
             std::lock_guard<std::mutex> lock(captureToProcessingQueueMutex);
-            captureToProcessingQueue.push(audio_data);            // ����Ŀ¼·��
+            captureToProcessingQueue.push(audio_data);  // 指针入队            // ����Ŀ¼·��
             captureToProcessingQueueCondition.notify_one(); // ֪ͨ����ģ����������
         }
         data.recordedSamples.clear(); // ����Ѿ��������Ƶ����

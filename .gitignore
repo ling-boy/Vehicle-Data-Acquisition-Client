@@ -46,6 +46,7 @@ Thumbs.db
 LOG.md
 USER_GUIDE.md
 plan.md
+TLS_GUIDE.md
 
 # ==================== 依赖安装目录 ====================
 conanbuildinfo.*

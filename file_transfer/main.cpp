@@ -38,8 +38,14 @@ int main(int argc, char* argv[]) {
 
     std::string server = Config::instance().getString("server.host", "tstit.x3322.net");
     int port = Config::instance().getInt("server.port", 12345);
+    bool use_tls = Config::instance().getBool("server.use_tls", false);
+    std::string ca_cert = Config::instance().getString("server.ca_cert", "");
 
-    fileSendingTask(server, port);
+    if (use_tls) {
+        LOG_INFO("TLS enabled, CA cert: " << (ca_cert.empty() ? "none (insecure)" : ca_cert));
+    }
+
+    fileSendingTask(server, port, use_tls, ca_cert);
 
     delete g_transferRing;
     LOG_INFO("=== File Transfer Process stopped ===");

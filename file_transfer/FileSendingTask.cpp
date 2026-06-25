@@ -5,14 +5,15 @@
 #include <iostream>
 #include <thread>
 
-void fileSendingTask(const std::string &server, int port)
+void fileSendingTask(const std::string &server, int port,
+                     bool use_tls, const std::string &ca_cert)
 {
     if (!g_transferRing) {
         LOG_ERROR("g_transferRing is null, cannot read from shared memory");
         return;
     }
 
-    auto file_send = FileSender::createNew(server, port);
+    auto file_send = FileSender::createNew(server, port, use_tls, ca_cert);
     LOG_INFO("FileSendingTask started, reading from shared memory ring buffer");
 
     while (!vehicle::SignalHandler::instance().shouldExit())

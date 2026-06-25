@@ -1,21 +1,24 @@
 #include "FileSender.h"
 
-std::unique_ptr<FileSender> FileSender::createNew(const std::string &server, int port)
+std::unique_ptr<FileSender> FileSender::createNew(const std::string &server, int port,
+                                                   bool use_tls, const std::string &ca_cert)
 {
-    return std::make_unique<FileSender>(server, port);
+    return std::make_unique<FileSender>(server, port, use_tls, ca_cert);
 }
 
-FileSender::FileSender(const std::string &server, int port)
-    : server_(server), port_(port), isConnected_(false)
+FileSender::FileSender(const std::string &server, int port,
+                       bool use_tls, const std::string &ca_cert)
+    : server_(server), port_(port), isConnected_(false),
+      use_tls_(use_tls), ca_cert_(ca_cert)
 {
-    network_handler_ = NetworkHandler::createNew(server_, port_); // 在构造函数中创建NetworkHandler
-    network_handler_->setDisconnectCallback([this]()
-                                            {
+    network_handler_ = NetworkHandler::createNew(server_, port_, use_tls_, ca_cert_);
+    network_handler_->setDisconnectCallback([this]() {
         std::cerr << "Connection lost, trying to reconnect..." << std::endl;
         if (!reconnect())
         {
             std::cerr << "Reconnection failed." << std::endl;
-        } });
+        }
+    });
 }
 
 bool FileSender::reconnect()
@@ -39,7 +42,6 @@ bool FileSender::start(fs::path dir_path)
 {
     try
     {
-        // 检查连接状态，如果没有连接，则尝试建立连接
         if (!isConnected_)
         {
             if (!network_handler_->connect())
@@ -49,14 +51,11 @@ bool FileSender::start(fs::path dir_path)
             }
             isConnected_ = true;
         }
-        // 遍历目录并处理每个文件
         for (const auto &entry : fs::recursive_directory_iterator(dir_path))
         {
             if (fs::is_regular_file(entry))
             {
                 std::unique_ptr<FileHandler> file_handler = FileHandler::createNew(entry.path());
-
-                // 发送文件
                 network_handler_->sendFile(*file_handler);
             }
         }

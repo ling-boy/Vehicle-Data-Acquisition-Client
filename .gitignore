@@ -1,0 +1,52 @@
+# ==================== 构建产物 ====================
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.o
+*.a
+*.so
+*.so.*
+*.dylib
+
+# ==================== 可执行文件 ====================
+VehicleClient
+VehicleCollect
+VehicleProcess
+VehicleTransfer
+RadarSim
+
+# ==================== 运行时生成 ====================
+logs/
+dataCapture/
+Dataset/
+radar_sim/
+
+# ==================== IDE / 编辑器 ====================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.cproject
+.settings/
+*.user
+*.suo
+*.vcxproj*
+*.sln
+compile_commands.json
+
+# ==================== 系统文件 ====================
+.DS_Store
+Thumbs.db
+*.tmp
+LOG.md
+USER_GUIDE.md
+
+# ==================== 依赖安装目录 ====================
+conanbuildinfo.*
+conaninfo.*
+conanfile.lock
